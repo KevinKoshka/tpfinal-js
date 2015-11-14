@@ -1,5 +1,6 @@
 /*-------HELPER FUNCTIONS--------*/
 
+/*Función que permite comparar arreglos entre sí.*/
 
 // Warn if overriding existing method
 if(Array.prototype.equals)
@@ -31,6 +32,8 @@ Array.prototype.equals = function (array) {
 // Hide method from for-in loops
 Object.defineProperty(Array.prototype, "equals", {enumerable: false});
 
+/*Función que determina la existencia de un valor en un arreglo.*/
+
 function isInArray(value, array){
 	if(array.indexOf(value) > -1){
 		return true;
@@ -42,7 +45,15 @@ function isInArray(value, array){
 
 /*-------LABRYNTH CODE--------*/
 
-
+/*
+Cargo los 3 sonidos:
+- caos    : suena cuando los usuarios se alejan del camino indicado
+(no pulsan ningun contacto).
+- orden   : suena cuando al menos un usuario va por el camino indicado
+(pulsa un contacto).
+- armonia : suena cuando dos usuarios se encuentran en posiciones
+adyacentes el uno del otro (se pulsan dos contactos adyacentes).
+*/
 var caos  = new buzz.sound("sounds/caos.wav", {
 	preload : true,
 	volume  : 100
@@ -56,7 +67,11 @@ var caos  = new buzz.sound("sounds/caos.wav", {
 	volume  : 100
 });
 
+/*Teclas mapeadas:
+			 [q,  w,  e,  r,  t,  y,  u,  i,  o,  p ]*/
 var teclas = [81, 87, 69, 82, 84, 89, 85, 73, 79, 80];
+
+/*Todos los pares posibles de teclas adyacentes.*/
 var pares = [
 	[81, 87],
 	[69, 87],
@@ -68,6 +83,8 @@ var pares = [
 	[73, 79],
 	[79, 80]
 ];
+
+/*Distintos estados*/
 var caotico = 'ESTÁ SONANDO CAOS';
 var ordenado = 'ESTÁ SONANDO ORDEN';
 var armonico = 'ESTÁ SONANDO ARMONÍA';
@@ -76,40 +93,51 @@ var timeouts = [];
 var hotkey = [];
 console.log(event);
 
+/*Función que mata todos los timeouts que estén de más. No debe
+haber más de un timeout por vez.*/
+function killTimeouts(){
+	if(timeouts.length >= 1){
+		clearTimeout(timeouts[0]);
+		timeouts.pop();
+	}
+}
+
+
+/*Handlers que se encargan de mapear todas las teclas que se han presionado
+durante 'keydown' y 'keyup'. Solo los valores que están siendo presionados
+tienen valor true.*/
 onkeydown = onkeyup = function(e){
 	var e = e || event;
 	hotkey[e.keyCode] = e.type == 'keydown';
 }
 
+/*Inicia el caos.*/
 caos.togglePlay().loop();
 
 
 $(window).on('keydown', function(key){
 
+	/*Se guardan solo las teclas que están siendo presionadas en 'currentKeys'*/
 	var currentKeys = [];
 	for(var i = 0; i < hotkey.length; i++){
 		if(hotkey[i]){
 			currentKeys.push(i);
 		}
 	}
+	//Si se presionan 2 teclas...
 	if(currentKeys.length == 2){
 		for(var i = 0; i < pares.length; i++){
-			console.log(0)
+			//...si las teclas presionadas corresponden algun valor de 'pares'...
 			if(pares[i].equals(currentKeys)){
-				console.log(1)
+				//...si no está sonando armonía...
 				if((estado !== armonico) && (armonia.isPaused())){
-					console.log(2)
+					//...se pasa de caos u orden a armonía.
 					if((estado == ordenado) && (!orden.isPaused())){
-						console.log(3)
-						if(timeouts.length >= 1){
-							clearTimeout(timeouts[0]);
-							timeouts.pop();
-						}
+						killTimeouts();
 						orden.fadeWith(armonia, 2000).loop();
 						estado = armonico;
 						console.log(estado);
 					} else if((estado == caotico) && (!caos.isPaused())){
-						console.log(4)
 						caos.fadeWith(armonia, 2000).loop();
 						estado = armonico;
 						console.log(estado);
@@ -118,15 +146,13 @@ $(window).on('keydown', function(key){
 			}
 		}
 	}
-	
+	/*Si la tecla presionada corresponde a 'teclas' y esta sonando caos, comienza a
+	sonar orden*/
 	if(isInArray(key.which, teclas)){
 		if(estado == caotico){
 			if(!caos.isPaused()){
 				caos.fadeWith(orden, 2000).loop();
-				if(timeouts.length >= 1){
-					clearTimeout(timeouts[0]);
-					timeouts.pop();
-				}
+				killTimeouts();
 				estado = ordenado;
 				console.log(estado);
 			}
@@ -142,15 +168,13 @@ $(window).on('keyup', function(key){
 			currentKeys.push(i);
 		}
 	}
+	/*Si se soltó una tecla de dos que estaban siendo presionadas, suena orden.*/
 	if(currentKeys.length == 1){
 		if(isInArray(currentKeys[0], teclas)){
 			if(estado == armonico){
 				if(!armonia.isPaused()){
 					armonia.fadeWith(orden, 2000).loop();
-					if(timeouts.length >= 1){
-						clearTimeout(timeouts[0]);
-						timeouts.pop();
-					}
+					killTimeouts();
 					estado = ordenado;
 					console.log(estado);
 				}
@@ -158,6 +182,8 @@ $(window).on('keyup', function(key){
 		}
 	} else if(isInArray(key.which, teclas)){
 		if(estado == ordenado || estado == armonico){
+			/*Si no hay ningún timeout corriendo, se espera al timeout para dar un
+			tiempo de gracia después que se suelta una tecla para iniciar con el caos.*/
 			if(timeouts.length < 1){
 				var count = window.setTimeout(function(){
 					if(!orden.isPaused()){
